@@ -1,0 +1,22 @@
+[package]
+name = "drogue-event-source"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio-tungstenite = { version = "0.15.0", features = ["native-tls"]}
+tokio = {version = "1.0", features = ["full"]}
+
+anyhow = "1.0"
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+clap = "2.33.3"
+config = "0.11"
+serde = { version = "1", features = ["derive"] }
+dotenv = "0.15.0"
+
+oauth2 = "4.1.0"
+
+env_logger = "0.9"
+log = "0.4"
