@@ -1,7 +1,10 @@
-# Drogue Clue Event Source
+# Drogue ClouD Event Source
 
 Connects to Drogue Cloud integration endpoint, consumes cloud events sent by devices and forwards them to the next service.
-Currently it only connects to WebSocket Endpoint. It can be used in combination with https://github.com/drogue-iot/drogue-postgresql-pusher
+
+Currently it only connects to WebSocket Endpoint.
+
+It can be used in combination with https://github.com/drogue-iot/drogue-postgresql-pusher
 
 ## Configuration
 
