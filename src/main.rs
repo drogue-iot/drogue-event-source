@@ -5,12 +5,12 @@ use anyhow::{anyhow, Context as AnyhowContext, Result};
 use serde::Deserialize;
 use crate::config::ConfigFromEnv;
 
-
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {
     pub k_sink: String,
     pub drogue_endpoint: String,
     pub drogue_app: String,
+    pub drogue_user: String,
     pub drogue_token: String,
 }
 
@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
 
     let request = Request::builder()
         .uri(url)
-        .header(header::AUTHORIZATION, config.drogue_token)
+        .header(header::AUTHORIZATION, format!("Basic {}", base64::encode(format!("{}:{}", config.drogue_user, config.drogue_token))))
         .body(())?;
 
     log::info!("Connecting to websocket with request : {:?}", request);

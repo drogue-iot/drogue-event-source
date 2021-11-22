@@ -17,6 +17,7 @@ serde = { version = "1", features = ["derive"] }
 dotenv = "0.15.0"
 
 oauth2 = "4.1.0"
+base64 = "0.13"
 
 env_logger = "0.9"
 log = "0.4"
