@@ -112,7 +112,7 @@ mod test {
     fn test_cfg_kafka() {
         let env = convert_args!(hashmap!(
             "MODE" => "kafka",
-            "BOOTSTRAP_SERVER" => "bootstrap:9091",
+            "BOOTSTRAP_SERVERS" => "bootstrap:9091",
             "TOPIC" => "topic",
             "PROPERTIES__FOO_BAR" => "baz",
             "K_SINK" => "http://localhost",
