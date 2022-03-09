@@ -1,18 +1,19 @@
 mod config;
-use tokio_tungstenite::tungstenite::connect;
-use tokio_tungstenite::tungstenite::http::{header, Request};
-use anyhow::{anyhow, Context as AnyhowContext, Result};
-use serde::Deserialize;
-use crate::config::ConfigFromEnv;
+mod sender;
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct Config {
-    pub k_sink: String,
-    pub drogue_endpoint: String,
-    pub drogue_app: String,
-    pub drogue_user: String,
-    pub drogue_token: String,
-}
+use crate::{config::*, sender::Sender};
+use anyhow::{Context as AnyhowContext, Result};
+use cloudevents::binding::rdkafka::MessageExt;
+use futures_util::stream::StreamExt;
+use rdkafka::config::FromClientConfig;
+use rdkafka::consumer::{CommitMode, Consumer, StreamConsumer};
+use rdkafka::util::DefaultRuntime;
+use thiserror::Error;
+use tokio_tungstenite::tungstenite::{
+    connect,
+    http::{header, Request},
+    Message,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -22,11 +23,99 @@ async fn main() -> Result<()> {
 
     let config = Config::from_env()?;
 
+    let sender = Sender::new(config.endpoint)?;
+
+    match config.mode {
+        Mode::Websocket(config) => {
+            log::info!("Using WebSocket mode");
+            websocket(config, sender).await
+        }
+        Mode::Kafka(config) => {
+            log::info!("Using Kafka mode");
+            kafka(config, sender).await
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum KafkaError {
+    #[error("Failed to receive: {0}")]
+    Receive(#[from] rdkafka::error::KafkaError),
+    #[error("Failed to parse event: {0}")]
+    Event(#[from] cloudevents::message::Error),
+}
+
+async fn kafka(config: KafkaConfig, sender: Sender) -> Result<()> {
+    let mut kafka_config = rdkafka::ClientConfig::new();
+
+    kafka_config.set("bootstrap.servers", config.bootstrap_servers);
+    kafka_config.extend(
+        config
+            .properties
+            .into_iter()
+            .map(|(k, v)| (k.replace('_', "."), v)),
+    );
+
+    let consumer = StreamConsumer::<_, DefaultRuntime>::from_config(&kafka_config)?;
+    consumer.subscribe(&[&config.topic])?;
+
+    let mut stream = consumer.stream();
+
+    log::info!("Running stream...");
+
+    loop {
+        match stream.next().await.map(|r| {
+            r.map_err::<KafkaError, _>(|err| err.into())
+                .and_then(|msg| {
+                    msg.to_event()
+                        .map_err(|err| err.into())
+                        .map(|evt| (msg, evt))
+                })
+        }) {
+            None => break,
+            Some(Ok(msg)) => match sender.send(msg.1).await {
+                Ok(()) => {
+                    if let Err(err) = consumer.commit_message(&msg.0, CommitMode::Async) {
+                        log::info!("Failed to ack: {err}");
+                        break;
+                    }
+                }
+                Err(err) => {
+                    // failed to deliver the event, even with retries
+                    log::info!("Failed to deliver event: {}", err);
+                    break;
+                }
+            },
+            Some(Err(KafkaError::Receive(err))) => {
+                // there is not much we can do here, except to shut down and retry
+                log::warn!("Failed to receive from Kafka: {err}");
+                break;
+            }
+            Some(Err(KafkaError::Event(err))) => {
+                // again not much we can do, except ignoring the event
+                log::warn!("Failed to decode event: {err}");
+                continue;
+            }
+        };
+    }
+
+    log::warn!("Exiting stream loop!");
+
+    Ok(())
+}
+
+async fn websocket(config: WebsocketConfig, sender: Sender) -> Result<()> {
     let url = format!("{}/{}", config.drogue_endpoint, config.drogue_app);
 
     let request = Request::builder()
         .uri(url)
-        .header(header::AUTHORIZATION, format!("Basic {}", base64::encode(format!("{}:{}", config.drogue_user, config.drogue_token))))
+        .header(
+            header::AUTHORIZATION,
+            format!(
+                "Basic {}",
+                base64::encode(format!("{}:{}", config.drogue_user, config.drogue_token))
+            ),
+        )
         .body(())?;
 
     log::info!("Connecting to websocket with request : {:?}", request);
@@ -34,26 +123,21 @@ async fn main() -> Result<()> {
         connect(request).context("Error connecting to the Websocket endpoint:")?;
     log::debug!("HTTP response: {}", response.status());
 
-    let client = reqwest::Client::new();
     loop {
         let msg = socket.read_message();
-        match msg {
-            Ok(m) => {
-                // ignore protocol messages, only show text
-                if m.is_text() {
-                    let body = m.into_text().expect("Invalid message");
-                    log::info!("Sending event: {}", body);
-                    match client.post(config.k_sink.clone())
-                                .header("Content-Type", "application/cloudevents+json")
-                                .body(body)
-                                .send()
-                                .await {
-                                    Ok(res) => log::info!("Response: {:?}", res),
-                                    Err(err) => log::warn!("Can't send event: {}", err),
-                                }
-                }
+        let event = match msg {
+            Ok(Message::Text(data)) => Some(serde_json::from_str(&data)?),
+            Ok(Message::Binary(data)) => Some(serde_json::from_slice(&data)?),
+            _ => None,
+        };
+
+        if let Some(event) = event {
+            log::info!("Sending event: {}", event);
+            match sender.send(event).await {
+                // FIXME: need verify the status code
+                Ok(res) => log::info!("Response: {:?}", res),
+                Err(err) => log::warn!("Can't send event: {}", err),
             }
-            Err(e) => break Err(anyhow!(e)),
         }
     }
 }
