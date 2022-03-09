@@ -1,2 +1,5 @@
 Dockerfile
 .idea/
+
+target/
+!target/release/drogue-event-source
