@@ -179,7 +179,7 @@ mod test {
                 password: None,
                 tls_insecure: false,
                 timeout: None,
-                error_delay: None,
+                error_delay: default_error_delay(),
                 retries: 5
             }
         );
