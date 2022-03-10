@@ -1,7 +1,7 @@
 use crate::EndpointConfig;
 use anyhow::bail;
 use cloudevents::binding::reqwest::RequestBuilderExt;
-use reqwest::Url;
+use reqwest::{Certificate, Url};
 use std::time::Duration;
 use thiserror::Error;
 
@@ -27,6 +27,11 @@ impl Sender {
             client = client
                 .danger_accept_invalid_certs(true)
                 .danger_accept_invalid_hostnames(true);
+        }
+        if let Some(cert) = &config.tls_certificate {
+            client = client
+                .tls_built_in_root_certs(false)
+                .add_root_certificate(Certificate::from_pem(cert.as_bytes())?);
         }
 
         client = client.timeout(
@@ -64,6 +69,10 @@ impl Sender {
                 request = request.bearer_auth(token);
             }
             _ => {}
+        }
+
+        for (k, v) in &self.config.headers {
+            request = request.header(k, v);
         }
 
         match request

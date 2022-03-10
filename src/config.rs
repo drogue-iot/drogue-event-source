@@ -83,6 +83,12 @@ pub struct EndpointConfig {
     #[serde(default)]
     pub tls_insecure: bool,
 
+    #[serde(default)]
+    pub tls_certificate: Option<String>,
+
+    #[serde(default)]
+    pub headers: HashMap<String, String>,
+
     #[serde(default, with = "humantime_serde")]
     pub timeout: Option<Duration>,
 
@@ -101,6 +107,8 @@ impl Default for EndpointConfig {
             password: None,
             token: None,
             tls_insecure: false,
+            tls_certificate: None,
+            headers: Default::default(),
             timeout: None,
             error_delay: default_error_delay(),
             retries: default_retries(),
@@ -182,7 +190,8 @@ mod test {
             "DROGUE_USER" => "user",
             "DROGUE_TOKEN" => "token",
             "K_SINK" => "http://localhost",
-            "ENDPOINT__METHOD" => "GET"
+            "ENDPOINT__METHOD" => "GET",
+            "ENDPOINT__HEADERS__foo" => "bar",
         ));
 
         let cfg = Config::from_env_source(env).unwrap();
@@ -195,6 +204,10 @@ mod test {
                 password: None,
                 token: None,
                 tls_insecure: false,
+                tls_certificate: None,
+                headers: convert_args!(hashmap!(
+                    "foo" => "bar"
+                )),
                 timeout: None,
                 error_delay: default_error_delay(),
                 retries: 5
