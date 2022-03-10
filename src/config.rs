@@ -77,6 +77,8 @@ pub struct EndpointConfig {
     pub username: Option<String>,
     #[serde(default)]
     pub password: Option<String>,
+    #[serde(default)]
+    pub token: Option<String>,
 
     #[serde(default)]
     pub tls_insecure: bool,
@@ -97,6 +99,7 @@ impl Default for EndpointConfig {
             method: default_method(),
             username: None,
             password: None,
+            token: None,
             tls_insecure: false,
             timeout: None,
             error_delay: default_error_delay(),
@@ -190,6 +193,7 @@ mod test {
                 method: Method::GET,
                 username: None,
                 password: None,
+                token: None,
                 tls_insecure: false,
                 timeout: None,
                 error_delay: default_error_delay(),
