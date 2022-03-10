@@ -23,7 +23,7 @@ async fn main() -> Result<()> {
 
     let config = Config::from_env()?;
 
-    let sender = Sender::new(config.endpoint)?;
+    let sender = Sender::new(config.k_sink, config.endpoint)?;
 
     match config.mode {
         Mode::Websocket(config) => {

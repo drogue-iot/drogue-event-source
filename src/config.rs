@@ -57,8 +57,10 @@ pub struct WebsocketConfig {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {
-    #[serde(flatten)]
+    #[serde(default)]
     pub endpoint: EndpointConfig,
+
+    pub k_sink: String,
 
     #[serde(flatten)]
     pub mode: Mode,
@@ -70,8 +72,6 @@ pub struct EndpointConfig {
     #[serde(default = "default_method")]
     #[serde_as(as = "serde_with::DisplayFromStr")]
     pub method: Method,
-
-    pub k_sink: String,
 
     #[serde(default)]
     pub username: Option<String>,
@@ -89,6 +89,20 @@ pub struct EndpointConfig {
 
     #[serde(default = "default_retries")]
     pub retries: usize,
+}
+
+impl Default for EndpointConfig {
+    fn default() -> Self {
+        Self {
+            method: default_method(),
+            username: None,
+            password: None,
+            tls_insecure: false,
+            timeout: None,
+            error_delay: default_error_delay(),
+            retries: default_retries(),
+        }
+    }
 }
 
 const fn default_error_delay() -> Duration {
@@ -165,7 +179,7 @@ mod test {
             "DROGUE_USER" => "user",
             "DROGUE_TOKEN" => "token",
             "K_SINK" => "http://localhost",
-            "METHOD" => "GET"
+            "ENDPOINT__METHOD" => "GET"
         ));
 
         let cfg = Config::from_env_source(env).unwrap();
@@ -174,7 +188,6 @@ mod test {
             cfg.endpoint,
             EndpointConfig {
                 method: Method::GET,
-                k_sink: "http://localhost".to_string(),
                 username: None,
                 password: None,
                 tls_insecure: false,
