@@ -5,9 +5,11 @@ use crate::{config::*, sender::Sender};
 use anyhow::{bail, Context as AnyhowContext, Result};
 use cloudevents::binding::rdkafka::MessageExt;
 use futures_util::stream::StreamExt;
-use rdkafka::config::FromClientConfig;
-use rdkafka::consumer::{CommitMode, Consumer, StreamConsumer};
-use rdkafka::util::DefaultRuntime;
+use rdkafka::{
+    config::FromClientConfig,
+    consumer::{Consumer, StreamConsumer},
+    util::DefaultRuntime,
+};
 use thiserror::Error;
 use tokio_tungstenite::tungstenite::{
     connect,
@@ -60,9 +62,22 @@ async fn kafka(config: KafkaConfig, sender: Sender) -> Result<()> {
             .map(|(k, v)| (k.replace('_', "."), v)),
     );
 
+    // set up for at-least-once delivery
+
+    kafka_config.set("enable.auto.commit", "true");
+    kafka_config.set("auto.commit.interval.ms", "5000");
+    kafka_config.set("enable.auto.offset.store", "false");
+
+    // dump config
+
+    log::debug!("Kafka config: {:#?}", kafka_config);
+
     let consumer = StreamConsumer::<_, DefaultRuntime>::from_config(&kafka_config)?;
+
+    log::info!("Prepare subscribe...");
     consumer.subscribe(&[&config.topic])?;
 
+    log::info!("Starting stream...");
     let mut stream = consumer.stream();
 
     log::info!("Running stream...");
@@ -79,7 +94,7 @@ async fn kafka(config: KafkaConfig, sender: Sender) -> Result<()> {
             None => break,
             Some(Ok(msg)) => match sender.send(msg.1).await {
                 Ok(()) => {
-                    if let Err(err) = consumer.commit_message(&msg.0, CommitMode::Async) {
+                    if let Err(err) = consumer.store_offset_from_message(&msg.0) {
                         log::info!("Failed to ack: {err}");
                         break;
                     }
