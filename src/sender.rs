@@ -20,7 +20,7 @@ pub enum SendError {
 }
 
 impl Sender {
-    pub fn new(config: EndpointConfig) -> anyhow::Result<Self> {
+    pub fn new(url: String, config: EndpointConfig) -> anyhow::Result<Self> {
         let mut client = reqwest::Client::builder();
 
         if config.tls_insecure {
@@ -38,7 +38,7 @@ impl Sender {
 
         let client = client.build()?;
 
-        let url = Url::parse(&config.k_sink)?;
+        let url = Url::parse(&url)?;
 
         Ok(Sender {
             config,
