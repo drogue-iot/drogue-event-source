@@ -31,3 +31,6 @@ maplit = "1"
 
 [patch.crates-io]
 cloudevents-sdk = { git = "https://github.com/cloudevents/sdk-rust", rev = "5a9f64868dd8d2142f1e699da0d60f0601299b0b" } # FIXME: awaiting release
+
+[profile.release]
+lto=true
