@@ -2,7 +2,7 @@ mod config;
 mod sender;
 
 use crate::{config::*, sender::Sender};
-use anyhow::{Context as AnyhowContext, Result};
+use anyhow::{bail, Context as AnyhowContext, Result};
 use cloudevents::binding::rdkafka::MessageExt;
 use futures_util::stream::StreamExt;
 use rdkafka::config::FromClientConfig;
@@ -22,6 +22,10 @@ async fn main() -> Result<()> {
     log::info!("Starting Drogue Event Source!");
 
     let config = Config::from_env()?;
+
+    if config.endpoint.username.is_some() & config.endpoint.token.is_some() {
+        bail!("You must not provide both basic auth and bearer auth");
+    }
 
     let sender = Sender::new(config.k_sink, config.endpoint)?;
 

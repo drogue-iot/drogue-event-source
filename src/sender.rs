@@ -56,6 +56,16 @@ impl Sender {
             request = request.basic_auth(username, self.config.password.as_ref());
         }
 
+        match (&self.config.username, &self.config.token) {
+            (Some(username), None) => {
+                request = request.basic_auth(username, self.config.password.as_ref());
+            }
+            (None, Some(token)) => {
+                request = request.bearer_auth(token);
+            }
+            _ => {}
+        }
+
         match request
             .event(event)
             .map_err(|err| {
