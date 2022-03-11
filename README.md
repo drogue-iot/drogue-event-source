@@ -51,15 +51,5 @@ The following options are available for the `ws` mode.
 You can build the image locally using:
 
 ```shell
-cargo build --release
 podman build . -t drogue-event-source
-```
-
-As this application links against C based libraries, it may be necessary to replace the container image base
-container to match your host system.
-
-This can be done using the `--from` switch. E.g.:
-
-```shell
-podman build . -t drogue-event-source --from registry.fedoraproject.org/fedora-minimal:35
 ```
