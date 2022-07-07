@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
 
     let config = Config::from_env()?;
 
-    if config.endpoint.username.is_some() & config.endpoint.token.is_some() {
+    if config.endpoint.username.is_some() && config.endpoint.token.is_some() {
         bail!("You must not provide both basic auth and bearer auth");
     }
 
@@ -144,9 +144,13 @@ async fn websocket(config: WebsocketConfig, sender: Sender) -> Result<()> {
 
     loop {
         let msg = socket.read_message();
-        let event = match msg {
-            Ok(Message::Text(data)) => Some(serde_json::from_str(&data)?),
-            Ok(Message::Binary(data)) => Some(serde_json::from_slice(&data)?),
+        let event = match msg? {
+            Message::Text(data) => Some(serde_json::from_str(&data)?),
+            Message::Binary(data) => Some(serde_json::from_slice(&data)?),
+            Message::Close(close) => {
+                log::warn!("Remote side sent close: {close:?}");
+                break;
+            }
             _ => None,
         };
 
@@ -159,4 +163,8 @@ async fn websocket(config: WebsocketConfig, sender: Sender) -> Result<()> {
             }
         }
     }
+
+    log::warn!("Exiting stream loop!");
+
+    Ok(())
 }
