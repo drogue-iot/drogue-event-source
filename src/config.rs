@@ -51,8 +51,8 @@ pub struct KafkaConfig {
 pub struct WebsocketConfig {
     pub drogue_endpoint: String,
     pub drogue_app: String,
-    pub drogue_user: String,
-    pub drogue_token: String,
+    pub drogue_user: Option<String>,
+    pub drogue_token: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -175,8 +175,8 @@ mod test {
             Mode::Websocket(WebsocketConfig {
                 drogue_app: "app".into(),
                 drogue_endpoint: "endpoint".into(),
-                drogue_user: "user".into(),
-                drogue_token: "token".into(),
+                drogue_user: Some("user".into()),
+                drogue_token: Some("token".into()),
             })
         );
     }

@@ -126,16 +126,24 @@ async fn kafka(config: KafkaConfig, sender: Sender) -> Result<()> {
 async fn websocket(config: WebsocketConfig, sender: Sender) -> Result<()> {
     let url = format!("{}/{}", config.drogue_endpoint, config.drogue_app);
 
-    let request = Request::builder()
-        .uri(url)
-        .header(
-            header::AUTHORIZATION,
-            format!(
-                "Basic {}",
-                base64::encode(format!("{}:{}", config.drogue_user, config.drogue_token))
-            ),
-        )
-        .body(())?;
+    let mut request = Request::builder().uri(url);
+    match (&config.drogue_user, &config.drogue_token) {
+        (Some(user), Some(token)) => {
+            request = request.header(
+                header::AUTHORIZATION,
+                format!("Basic {}", base64::encode(format!("{}:{}", user, token))),
+            );
+        }
+        (None, Some(token)) => {
+            request = request.header(header::AUTHORIZATION, format!("Bearer {}", token));
+        }
+        (None, None) => {}
+        (Some(_), None) => {
+            bail!("Invalid combination: username present, but password is missing. You can set an empty password by providing an empty string.");
+        }
+    }
+
+    let request = request.body(())?;
 
     log::info!("Connecting to websocket with request : {:?}", request);
     let (mut socket, response) =
